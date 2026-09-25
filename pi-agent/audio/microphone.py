@@ -4,8 +4,13 @@ import threading
 from fractions import Fraction
 
 import av
-import alsaaudio
 import numpy as np
+
+try:
+    import alsaaudio
+    ALSA_AVAILABLE = True
+except ImportError:
+    ALSA_AVAILABLE = False
 
 from aiortc import MediaStreamTrack
 from aiortc.mediastreams import MediaStreamError
@@ -123,48 +128,34 @@ class MicrophoneTrack(MediaStreamTrack):
     # =========================================================
 
     def _open_microphone(self):
+        if not ALSA_AVAILABLE:
+            logger.info("Using Dummy Microphone Track (Mock Mode on non-Linux platform)")
+            self.pcm = None
+            return
 
-        logger.info(
-            f"Opening ALSA capture device: "
-            f"{self.device_name}"
-        )
+        try:
+            logger.info(
+                f"Opening ALSA capture device: {self.device_name}"
+            )
 
-        self.pcm = alsaaudio.PCM(
-            type=alsaaudio.PCM_CAPTURE,
-            mode=alsaaudio.PCM_NORMAL,
-            device=self.device_name,
-        )
+            self.pcm = alsaaudio.PCM(
+                type=alsaaudio.PCM_CAPTURE,
+                mode=alsaaudio.PCM_NORMAL,
+                device=self.device_name,
+            )
 
-        self.pcm.setchannels(2)
+            self.pcm.setchannels(2)
+            self.pcm.setrate(self.sample_rate)
+            self.pcm.setformat(alsaaudio.PCM_FORMAT_S16_LE)
+            self.pcm.setperiodsize(self.frame_samples)
 
-        self.pcm.setrate(
-            self.sample_rate
-        )
-
-        self.pcm.setformat(
-            alsaaudio.PCM_FORMAT_S16_LE
-        )
-
-        self.pcm.setperiodsize(
-            self.frame_samples
-        )
-
-        logger.info(
-            "Pi microphone initialized successfully"
-        )
-
-        logger.info(
-            "Using LEFT I2S microphone channel"
-        )
-
-        logger.info(
-            "4-sample moving-average filter enabled"
-        )
-
-        logger.info(
-            f"Microphone output gain: "
-            f"{self.output_gain}"
-        )
+            logger.info("Pi microphone initialized successfully")
+            logger.info("Using LEFT I2S microphone channel")
+            logger.info("4-sample moving-average filter enabled")
+            logger.info(f"Microphone output gain: {self.output_gain}")
+        except Exception as e:
+            logger.error(f"Failed to initialize ALSA microphone '{self.device_name}': {e}. Falling back to mock audio.")
+            self.pcm = None
 
 
     # =========================================================
@@ -203,22 +194,19 @@ class MicrophoneTrack(MediaStreamTrack):
                 pcm = self.pcm
 
                 if pcm is None:
-                    break
-
-                try:
-
-                    length, data = pcm.read()
-
-                except Exception as e:
-
-                    if not self.stop_event.is_set():
-
-                        logger.error(
-                            f"ALSA microphone read error: {e}"
-                        )
-
-                    break
-
+                    # Mock mode: generate 20ms of silent 16-bit PCM stereo data
+                    await_time = self.frame_duration
+                    time_module = __import__("time")
+                    time_module.sleep(await_time)
+                    data = np.zeros(self.frame_samples * 2, dtype=np.int16).tobytes()
+                    length = self.frame_samples
+                else:
+                    try:
+                        length, data = pcm.read()
+                    except Exception as e:
+                        if not self.stop_event.is_set():
+                            logger.error(f"ALSA microphone read error: {e}")
+                        break
 
                 if length <= 0 or not data:
                     continue

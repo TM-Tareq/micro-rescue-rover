@@ -1,17 +1,19 @@
 'use client';
 
 import React from 'react';
-import { Wifi, Cpu, Volume2, ShieldCheck } from 'lucide-react';
+import { Wifi, Cpu, Volume2, ShieldCheck, Eye } from 'lucide-react';
 import { AudioState } from '@/lib/webrtc';
 
 interface DeviceStatusProps {
   isPiOnline: boolean;
+  isAiReady?: boolean;
   audioState: AudioState;
   isSocketConnected: boolean;
 }
 
 export const DeviceStatus: React.FC<DeviceStatusProps> = ({
   isPiOnline,
+  isAiReady = false,
   audioState,
   isSocketConnected,
 }) => {
@@ -25,7 +27,7 @@ export const DeviceStatus: React.FC<DeviceStatusProps> = ({
       </div>
 
       <div className="space-y-3 text-sm">
-        {/* Raspberry Pi Status */}
+        {/* Raspberry Pi / Vision Status */}
         <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200/80">
           <div className="flex items-center space-x-3">
             <Cpu className={`w-4 h-4 ${isPiOnline ? 'text-emerald-600' : 'text-slate-400'}`} />
@@ -45,6 +47,30 @@ export const DeviceStatus: React.FC<DeviceStatusProps> = ({
               }`}
             >
               {isPiOnline ? 'Online' : 'Offline'}
+            </span>
+          </div>
+        </div>
+
+        {/* AI Detection Status */}
+        <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200/80">
+          <div className="flex items-center space-x-3">
+            <Eye className={`w-4 h-4 ${isAiReady ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-slate-700 font-semibold text-xs">AI Detection</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isAiReady ? 'bg-emerald-500' : 'bg-slate-400'
+              }`}
+            />
+            <span
+              className={`font-semibold text-xs px-2 py-0.5 rounded ${
+                isAiReady
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-slate-100 text-slate-600 border border-slate-200'
+              }`}
+            >
+              {isAiReady ? 'Ready' : 'Offline'}
             </span>
           </div>
         </div>

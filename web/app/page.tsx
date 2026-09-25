@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getSocket } from '@/lib/socket';
 import { WebRTCClient, AudioState, MicState } from '@/lib/webrtc';
+import { fetchVisionHealth, fetchVisionStatus } from '@/lib/vision';
 import { DeviceStatus } from '@/components/DeviceStatus';
 import { AudioPanel } from '@/components/AudioPanel';
 import { CameraPanel } from '@/components/CameraPanel';
@@ -16,11 +17,51 @@ const TARGET_DEVICE_ID = 'rover-01';
 export default function RoverDashboard() {
   const [isSocketConnected, setIsSocketConnected] = useState<boolean>(false);
   const [isPiOnline, setIsPiOnline] = useState<boolean>(false);
+  const [isAiReady, setIsAiReady] = useState<boolean>(false);
   const [audioState, setAudioState] = useState<AudioState>('Idle');
   const [micState, setMicState] = useState<MicState>('Off');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const webRtcClientRef = useRef<WebRTCClient | null>(null);
+  const consecutiveFailuresRef = useRef<number>(0);
+
+  // Poll Raspberry Pi Vision Server /health & /api/status every 3 seconds
+  useEffect(() => {
+    let isMounted = true;
+
+    const pollVisionHealth = async () => {
+      const health = await fetchVisionHealth();
+      const statusData = await fetchVisionStatus();
+
+      if (isMounted) {
+        if (health && (health.status === 'ok' || health.status === 'online')) {
+          consecutiveFailuresRef.current = 0;
+          setIsPiOnline(true);
+          const aiReady = health.model !== false && health.camera !== false;
+          setIsAiReady(aiReady);
+        } else if (statusData) {
+          consecutiveFailuresRef.current = 0;
+          setIsPiOnline(true);
+          setIsAiReady(true);
+        } else {
+          consecutiveFailuresRef.current += 1;
+          // Require 3 consecutive failures (~9 seconds) before marking offline to prevent UI flickering
+          if (consecutiveFailuresRef.current >= 3) {
+            setIsPiOnline(false);
+            setIsAiReady(false);
+          }
+        }
+      }
+    };
+
+    pollVisionHealth();
+    const healthInterval = setInterval(pollVisionHealth, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(healthInterval);
+    };
+  }, []);
 
   useEffect(() => {
     const socket = getSocket();
@@ -28,33 +69,22 @@ export default function RoverDashboard() {
     const onConnect = () => {
       console.log('[Socket] Connected to NestJS signaling server');
       setIsSocketConnected(true);
-
-      socket.emit('device:status', { deviceId: TARGET_DEVICE_ID }, (response: any) => {
-        if (response && response.status === 'online') {
-          setIsPiOnline(true);
-        } else {
-          setIsPiOnline(false);
-        }
-      });
     };
 
     const onDisconnect = () => {
       console.log('[Socket] Disconnected from signaling server');
       setIsSocketConnected(false);
-      setIsPiOnline(false);
     };
 
     const onDeviceOnline = (data: { deviceId: string }) => {
       if (data.deviceId === TARGET_DEVICE_ID) {
         console.log(`[Socket] Device ${TARGET_DEVICE_ID} came ONLINE`);
-        setIsPiOnline(true);
       }
     };
 
     const onDeviceOffline = (data: { deviceId: string }) => {
       if (data.deviceId === TARGET_DEVICE_ID) {
         console.log(`[Socket] Device ${TARGET_DEVICE_ID} went OFFLINE`);
-        setIsPiOnline(false);
         if (webRtcClientRef.current) {
           webRtcClientRef.current.stopTalk();
         }
@@ -155,6 +185,7 @@ export default function RoverDashboard() {
         <div className="md:col-span-1">
           <DeviceStatus
             isPiOnline={isPiOnline}
+            isAiReady={isAiReady}
             audioState={audioState}
             isSocketConnected={isSocketConnected}
           />
