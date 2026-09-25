@@ -1,19 +1,25 @@
 'use client';
 
 import React from 'react';
-import { Wifi, Cpu, Volume2, ShieldCheck, Eye } from 'lucide-react';
+import { Wifi, Cpu, Volume2, ShieldCheck, Eye, Camera, Navigation, Signal } from 'lucide-react';
 import { AudioState } from '@/lib/webrtc';
 
 interface DeviceStatusProps {
   isPiOnline: boolean;
+  isVisionOnline?: boolean;
   isAiReady?: boolean;
+  isGpsOnline?: boolean;
+  gpsFixState?: 'Fixed' | 'Searching' | 'No Fix';
   audioState: AudioState;
   isSocketConnected: boolean;
 }
 
 export const DeviceStatus: React.FC<DeviceStatusProps> = ({
   isPiOnline,
+  isVisionOnline = false,
   isAiReady = false,
+  isGpsOnline = false,
+  gpsFixState = 'No Fix',
   audioState,
   isSocketConnected,
 }) => {
@@ -26,9 +32,9 @@ export const DeviceStatus: React.FC<DeviceStatusProps> = ({
         </h2>
       </div>
 
-      <div className="space-y-3 text-sm">
-        {/* Raspberry Pi / Vision Status */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200/80">
+      <div className="space-y-2.5 text-sm">
+        {/* Raspberry Pi Main Hardware Status */}
+        <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200/80">
           <div className="flex items-center space-x-3">
             <Cpu className={`w-4 h-4 ${isPiOnline ? 'text-emerald-600' : 'text-slate-400'}`} />
             <span className="text-slate-700 font-semibold text-xs">Raspberry Pi</span>
@@ -51,32 +57,78 @@ export const DeviceStatus: React.FC<DeviceStatusProps> = ({
           </div>
         </div>
 
-        {/* AI Detection Status */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200/80">
+        {/* Vision System */}
+        <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200/80">
+          <div className="flex items-center space-x-3">
+            <Camera className={`w-4 h-4 ${isVisionOnline ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-slate-700 font-semibold text-xs">Vision System</span>
+          </div>
+          <span
+            className={`font-semibold text-xs px-2 py-0.5 rounded ${
+              isVisionOnline
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : 'bg-slate-100 text-slate-600 border border-slate-200'
+            }`}
+          >
+            {isVisionOnline ? 'Online' : 'Offline'}
+          </span>
+        </div>
+
+        {/* AI Detection */}
+        <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200/80">
           <div className="flex items-center space-x-3">
             <Eye className={`w-4 h-4 ${isAiReady ? 'text-emerald-600' : 'text-slate-400'}`} />
             <span className="text-slate-700 font-semibold text-xs">AI Detection</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isAiReady ? 'bg-emerald-500' : 'bg-slate-400'
-              }`}
-            />
-            <span
-              className={`font-semibold text-xs px-2 py-0.5 rounded ${
-                isAiReady
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                  : 'bg-slate-100 text-slate-600 border border-slate-200'
-              }`}
-            >
-              {isAiReady ? 'Ready' : 'Offline'}
-            </span>
+          <span
+            className={`font-semibold text-xs px-2 py-0.5 rounded ${
+              isAiReady
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : 'bg-slate-100 text-slate-600 border border-slate-200'
+            }`}
+          >
+            {isAiReady ? 'Ready' : 'Offline'}
+          </span>
+        </div>
+
+        {/* GPS System */}
+        <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200/80">
+          <div className="flex items-center space-x-3">
+            <Navigation className={`w-4 h-4 ${isGpsOnline ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-slate-700 font-semibold text-xs">GPS System</span>
           </div>
+          <span
+            className={`font-semibold text-xs px-2 py-0.5 rounded ${
+              isGpsOnline
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : 'bg-slate-100 text-slate-600 border border-slate-200'
+            }`}
+          >
+            {isGpsOnline ? 'Online' : 'Offline'}
+          </span>
+        </div>
+
+        {/* GPS Fix */}
+        <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200/80">
+          <div className="flex items-center space-x-3">
+            <Signal className={`w-4 h-4 ${gpsFixState === 'Fixed' ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-slate-700 font-semibold text-xs">GPS Fix</span>
+          </div>
+          <span
+            className={`font-semibold text-xs px-2 py-0.5 rounded ${
+              gpsFixState === 'Fixed'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : gpsFixState === 'Searching'
+                ? 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
+                : 'bg-slate-100 text-slate-600 border border-slate-200'
+            }`}
+          >
+            {gpsFixState}
+          </span>
         </div>
 
         {/* Audio System Status */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200/80">
+        <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200/80">
           <div className="flex items-center space-x-3">
             <Volume2 className={`w-4 h-4 ${audioState === 'Connected' ? 'text-emerald-600' : 'text-slate-400'}`} />
             <span className="text-slate-700 font-semibold text-xs">Audio System</span>
@@ -97,7 +149,7 @@ export const DeviceStatus: React.FC<DeviceStatusProps> = ({
         </div>
 
         {/* Network Connectivity */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200/80">
+        <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200/80">
           <div className="flex items-center space-x-3">
             <Wifi className={`w-4 h-4 ${isSocketConnected ? 'text-emerald-600' : 'text-slate-400'}`} />
             <span className="text-slate-700 font-semibold text-xs">Signaling Network</span>

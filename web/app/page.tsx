@@ -4,9 +4,11 @@ import React, { useEffect, useState, useRef } from 'react';
 import { getSocket } from '@/lib/socket';
 import { WebRTCClient, AudioState, MicState } from '@/lib/webrtc';
 import { fetchVisionHealth, fetchVisionStatus } from '@/lib/vision';
+import { fetchGPSHealth, fetchGPSData } from '@/lib/gps';
 import { DeviceStatus } from '@/components/DeviceStatus';
 import { AudioPanel } from '@/components/AudioPanel';
 import { CameraPanel } from '@/components/CameraPanel';
+import { RoverLocation } from '@/components/RoverLocation';
 import { ThermalPanel } from '@/components/ThermalPanel';
 import { DetectionPanel } from '@/components/DetectionPanel';
 import { RoverControls } from '@/components/RoverControls';
@@ -16,52 +18,80 @@ const TARGET_DEVICE_ID = 'rover-01';
 
 export default function RoverDashboard() {
   const [isSocketConnected, setIsSocketConnected] = useState<boolean>(false);
-  const [isPiOnline, setIsPiOnline] = useState<boolean>(false);
+  const [isVisionOnline, setIsVisionOnline] = useState<boolean>(false);
+  const [isGpsOnline, setIsGpsOnline] = useState<boolean>(false);
   const [isAiReady, setIsAiReady] = useState<boolean>(false);
+  const [gpsFixState, setGpsFixState] = useState<'Fixed' | 'Searching' | 'No Fix'>('No Fix');
   const [audioState, setAudioState] = useState<AudioState>('Idle');
   const [micState, setMicState] = useState<MicState>('Off');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const webRtcClientRef = useRef<WebRTCClient | null>(null);
-  const consecutiveFailuresRef = useRef<number>(0);
+  const visionFailuresRef = useRef<number>(0);
+  const gpsFailuresRef = useRef<number>(0);
 
-  // Poll Raspberry Pi Vision Server /health & /api/status every 3 seconds
+  // Poll both Vision Health & GPS Health endpoints independently every 3 seconds
   useEffect(() => {
     let isMounted = true;
 
-    const pollVisionHealth = async () => {
-      const health = await fetchVisionHealth();
-      const statusData = await fetchVisionStatus();
+    const pollHealthServices = async () => {
+      // 1. Vision Health Check
+      const visionHealth = await fetchVisionHealth();
+      const visionStatus = await fetchVisionStatus();
 
-      if (isMounted) {
-        if (health && (health.status === 'ok' || health.status === 'online')) {
-          consecutiveFailuresRef.current = 0;
-          setIsPiOnline(true);
-          const aiReady = health.model !== false && health.camera !== false;
-          setIsAiReady(aiReady);
-        } else if (statusData) {
-          consecutiveFailuresRef.current = 0;
-          setIsPiOnline(true);
-          setIsAiReady(true);
+      // 2. GPS Health Check
+      const gpsHealth = await fetchGPSHealth();
+      const gpsData = await fetchGPSData();
+
+      if (!isMounted) return;
+
+      // Evaluate Vision Service Status
+      if (visionHealth && (visionHealth.status === 'ok' || visionHealth.status === 'online')) {
+        visionFailuresRef.current = 0;
+        setIsVisionOnline(true);
+        const aiReady = visionHealth.model !== false && visionHealth.camera !== false;
+        setIsAiReady(aiReady);
+      } else if (visionStatus) {
+        visionFailuresRef.current = 0;
+        setIsVisionOnline(true);
+        setIsAiReady(true);
+      } else {
+        visionFailuresRef.current += 1;
+        if (visionFailuresRef.current >= 3) {
+          setIsVisionOnline(false);
+          setIsAiReady(false);
+        }
+      }
+
+      // Evaluate GPS Service Status & Fix State
+      if (gpsHealth || gpsData !== null) {
+        gpsFailuresRef.current = 0;
+        setIsGpsOnline(true);
+        if (gpsData?.fix && gpsData.latitude !== null && gpsData.longitude !== null) {
+          setGpsFixState('Fixed');
         } else {
-          consecutiveFailuresRef.current += 1;
-          // Require 3 consecutive failures (~9 seconds) before marking offline to prevent UI flickering
-          if (consecutiveFailuresRef.current >= 3) {
-            setIsPiOnline(false);
-            setIsAiReady(false);
-          }
+          setGpsFixState('Searching');
+        }
+      } else {
+        gpsFailuresRef.current += 1;
+        if (gpsFailuresRef.current >= 3) {
+          setIsGpsOnline(false);
+          setGpsFixState('No Fix');
         }
       }
     };
 
-    pollVisionHealth();
-    const healthInterval = setInterval(pollVisionHealth, 3000);
+    pollHealthServices();
+    const healthInterval = setInterval(pollHealthServices, 3000);
 
     return () => {
       isMounted = false;
       clearInterval(healthInterval);
     };
   }, []);
+
+  // Raspberry Pi is considered ONLINE if AT LEAST ONE service is reachable
+  const isPiOnline = isVisionOnline || isGpsOnline;
 
   useEffect(() => {
     const socket = getSocket();
@@ -185,12 +215,18 @@ export default function RoverDashboard() {
         <div className="md:col-span-1">
           <DeviceStatus
             isPiOnline={isPiOnline}
+            isVisionOnline={isVisionOnline}
             isAiReady={isAiReady}
+            isGpsOnline={isGpsOnline}
+            gpsFixState={gpsFixState}
             audioState={audioState}
             isSocketConnected={isSocketConnected}
           />
         </div>
       </div>
+
+      {/* LIVE ROVER LOCATION & TRACKING */}
+      <RoverLocation />
 
       {/* MIDDLE SECTION: AUDIO STREAM CONTROLLER */}
       <AudioPanel
