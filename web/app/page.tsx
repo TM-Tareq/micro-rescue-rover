@@ -11,6 +11,7 @@ import { CameraPanel } from '@/components/CameraPanel';
 import { RoverLocation } from '@/components/RoverLocation';
 import { ThermalPanel } from '@/components/ThermalPanel';
 import { DetectionPanel } from '@/components/DetectionPanel';
+import { ServoStatus } from '@/components/ServoStatus';
 import { RoverControls } from '@/components/RoverControls';
 import { Bot, Radio } from 'lucide-react';
 
@@ -240,8 +241,9 @@ export default function RoverDashboard() {
         onClearError={() => setErrorMessage(null)}
       />
 
-      {/* BOTTOM SECTION: EXPANSION MODULE PLACEHOLDERS */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      {/* BOTTOM SECTION: EXPANSION MODULES & SERVO TELEMETRY */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <ServoStatus />
         <ThermalPanel />
         <DetectionPanel />
         <RoverControls />
