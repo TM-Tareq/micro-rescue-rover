@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
 import { getSocket } from '@/lib/socket';
@@ -14,7 +14,6 @@ import { DetectionPanel } from '@/components/DetectionPanel';
 import { RoverControls } from '@/components/RoverControls';
 import { Bot, Radio } from 'lucide-react';
 
-import { ServoStatus } from '@/components/ServoStatus';
 const TARGET_DEVICE_ID = 'rover-01';
 
 export default function RoverDashboard() {
@@ -200,7 +199,7 @@ export default function RoverDashboard() {
               className={`text-xs font-bold tracking-wider uppercase ${isPiOnline ? 'text-emerald-700' : 'text-red-700'
                 }`}
             >
-              â— {isPiOnline ? 'ONLINE' : 'OFFLINE'}
+              ● {isPiOnline ? 'ONLINE' : 'OFFLINE'}
             </span>
           </div>
         </div>
@@ -245,13 +244,6 @@ export default function RoverDashboard() {
         <DetectionPanel />
         <RoverControls />
       </div>
-    
-      {/* Restored latest servo/fire commanded-state panel */}
-      <div className="mt-6">
-        <ServoStatus />
-      </div>
-</main>
+    </main>
   );
 }
-
-

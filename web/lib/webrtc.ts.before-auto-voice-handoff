@@ -53,112 +53,6 @@ export class WebRTCClient {
 
   private isMuted: boolean = false;
 
-  private talkOffTimer: ReturnType<typeof setTimeout> | null = null;
-
-
-  private getRoverControlBaseUrl(): string {
-
-    const explicitUrl =
-      process.env.NEXT_PUBLIC_ROVER_SERVO_URL || '';
-
-    if (explicitUrl) {
-      return explicitUrl.replace(/\/+$/, '');
-    }
-
-
-    const visionUrl =
-      process.env.NEXT_PUBLIC_ROVER_VISION_URL || '';
-
-    if (visionUrl) {
-
-      try {
-
-        const u =
-          new URL(visionUrl);
-
-        return `${u.protocol}//${u.hostname}:8084`;
-
-      } catch {
-
-        return '';
-      }
-    }
-
-
-    return '';
-  }
-
-
-  private async setRoverTalkState(
-    active: boolean
-  ): Promise<void> {
-
-    const baseUrl =
-      this.getRoverControlBaseUrl();
-
-
-    if (!baseUrl) {
-
-      console.warn(
-        '[ROVER HANDOFF] No rover control URL configured'
-      );
-
-      return;
-    }
-
-
-    try {
-
-      const response =
-        await fetch(
-          `${baseUrl}/api/talk-state`,
-          {
-            method: 'POST',
-
-            headers: {
-              'Content-Type': 'application/json',
-            },
-
-            body:
-              JSON.stringify({
-                active,
-              }),
-
-            cache:
-              'no-store',
-
-            signal:
-              AbortSignal.timeout(
-                2000
-              ),
-          }
-        );
-
-
-      if (!response.ok) {
-
-        throw new Error(
-          `HTTP ${response.status}`
-        );
-      }
-
-
-      console.log(
-        active
-          ? '[ROVER HANDOFF] TALK ON -> compartment voice OFF'
-          : '[ROVER HANDOFF] TALK OFF -> compartment voice may resume'
-      );
-
-
-    } catch (err) {
-
-      console.error(
-        '[ROVER HANDOFF] Failed to update rover talk state:',
-        err
-      );
-    }
-  }
-
 
   constructor(
     socket: Socket,
@@ -349,27 +243,6 @@ export class WebRTCClient {
 
         this.stopTalk();
       }
-
-
-      // Cancel any delayed voice-resume left by a previous STOP TALK.
-      if (
-        this.talkOffTimer
-      ) {
-
-        clearTimeout(
-          this.talkOffTimer
-        );
-
-        this.talkOffTimer =
-          null;
-      }
-
-
-      // Tell rover.py to release the INMP441 from Whisper
-      // before WebRTC on the Pi opens the same microphone.
-      await this.setRoverTalkState(
-        true
-      );
 
 
       this.callbacks.onAudioStateChange(
@@ -1021,33 +894,6 @@ export class WebRTCClient {
     this.callbacks.onAudioStateChange(
       'Idle'
     );
-
-
-    // Let the Pi WebRTC agent release ALSA capture first,
-    // then allow compartment Whisper to resume.
-    if (
-      this.talkOffTimer
-    ) {
-
-      clearTimeout(
-        this.talkOffTimer
-      );
-    }
-
-
-    this.talkOffTimer =
-      setTimeout(
-        () => {
-
-          this.talkOffTimer =
-            null;
-
-          void this.setRoverTalkState(
-            false
-          );
-        },
-        1000
-      );
   }
 
 
